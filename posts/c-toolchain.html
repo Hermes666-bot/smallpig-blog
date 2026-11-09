@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C 语言开发环境与工具链笔记 · smallpig</title>
+<meta name="description" content="编译器、链接器、调试器到底在做什么。">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">smallpig</a>
+  <nav>
+    <a href="/about.html">关于</a>
+    <a href="https://github.com/Hermes666-bot" rel="noopener noreferrer">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <article>
+    <a class="back-link" href="/">← 返回首页</a>
+    <h1>C 语言开发环境与工具链笔记</h1>
+    <time datetime="2026-11-09">2026-11-09</time>
+
+    <p>课上讲"编译原理、调试机制与工程实践"，听起来很抽象。落到具体的命令上其实就四件事：<strong>预处理、编译、汇编、链接</strong>。这四个词对应四个可以单独跑的命令，跑一遍就懂了。</p>
+
+    <h2>从 .c 到可执行文件：四步</h2>
+    <p>平时写 <code>gcc hello.c -o hello</code>，一条命令背后其实做了四件事。拆开看：</p>
+
+    <pre><code># 1. 预处理：展开宏、插入头文件、去掉注释
+gcc -E hello.c -o hello.i
+
+# 2. 编译：C 代码 -> 汇编代码
+gcc -S hello.i -o hello.s
+
+# 3. 汇编：汇编代码 -> 机器码（目标文件）
+gcc -c hello.s -o hello.o
+
+# 4. 链接：把目标文件和库合成一个可执行文件
+gcc hello.o -o hello</code></pre>
+
+    <p>中间产物各看一眼，很多"玄学"问题就落地了：</p>
+    <ul>
+      <li><code>hello.i</code> 会非常长——因为 <code>#include &lt;stdio.h&gt;</code> 是把整个头文件原样插进来，不是"引用一下"</li>
+      <li><code>hello.s</code> 是汇编，能看出函数调用怎么传参</li>
+      <li><code>hello.o</code> 已经是机器码了，但还不能运行——缺入口、缺库函数</li>
+    </ul>
+
+    <h2>链接器到底在干什么</h2>
+    <p>写过"未定义的引用（undefined reference）"报错的人都踩过这一脚：<strong>编译通过了，链接失败了</strong>。</p>
+    <p>原因很简单：编译阶段只检查语法和你写的声明，不关心函数到底存不存在；链接阶段才去找 <code>printf</code> 的真实地址。所以：</p>
+    <ul>
+      <li>忘写 <code>#include &lt;stdio.h&gt;</code> → 编译警告，可能链接失败</li>
+      <li>忘加 <code>-lm</code> 却在用 <code>sqrt</code> → 编译过，链接报 undefined reference</li>
+      <li>声明了但没定义 → 同上</li>
+    </ul>
+    <p>以后看到 "undefined reference to xxx"，先想"我是不是没链对应的库"，而不是怀疑代码写错了。</p>
+
+    <h2>调试器：让程序慢下来给你看</h2>
+    <p>加 <code>-g</code> 编译（保留符号信息），然后用 <code>gdb</code>：</p>
+
+    <pre><code>gcc -g -O0 hello.c -o hello
+gdb ./hello
+
+(gdb) break main      # 在 main 处下断点
+(gdb) run             # 跑起来，会停在断点
+(gdb) next            # 单步，不进函数
+(gdb) step            # 单步，进函数
+(gdb) print x         # 看变量 x 的值
+(gdb) backtrace       # 看调用栈
+(gdb) continue        # 继续跑到下一个断点</code></pre>
+
+    <p>段错误（segmentation fault）时最有用的是 <code>backtrace</code>——它会告诉你崩在哪一行、是谁调用的。比在代码里到处插 <code>printf</code> 高效得多。</p>
+
+    <h2>工程实践上的几个习惯</h2>
+    <ul>
+      <li><strong>永远开警告</strong>：<code>-Wall -Wextra</code>，把警告当错误处理 <code>-Werror</code></li>
+      <li><strong>调试用 <code>-O0</code></strong>：开了优化后，变量可能被优化掉，断点会乱跳</li>
+      <li><strong>多文件用 Makefile 或 CMake</strong>：手敲一长串 <code>gcc a.c b.c c.c ...</code> 迟早出错</li>
+      <li><strong>用 sanitizer 抓内存问题</strong>：<code>-fsanitize=address</code> 能在越界访问的那一刻就报错，而不是等到程序莫名其妙崩掉</li>
+    </ul>
+
+    <h2>一句话总结</h2>
+    <blockquote>
+      编译通过 ≠ 程序正确。编译只保证语法对，链接保证符号齐，运行时的对错要靠调试器和测试来验证。搞清楚这三层的分工，大部分"为什么报这个错"就有答案了。
+    </blockquote>
+  </article>
+</main>
+
+<footer class="site-footer">
+  <p>© 2026 刘东昊 · <a href="https://smallpig.dpdns.org">smallpig.dpdns.org</a></p>
+</footer>
+</body>
+</html>
